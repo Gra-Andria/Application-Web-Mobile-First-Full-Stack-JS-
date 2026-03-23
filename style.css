@@ -1,0 +1,11 @@
+.layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+@media (min-width: 768px) {
+    .layout {
+        grid-template-columns: 2fr 1fr;
+    }
+}
