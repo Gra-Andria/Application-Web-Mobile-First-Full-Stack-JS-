@@ -15,16 +15,39 @@ const renderCards = (data) => {
         createCard(item.title, item.content)
     ).join("");
 };
-const fetchData = async () => {
+//offline first
+const loadData = async () => {
+    const localData = localStorage.getItem("cardsData");
+    if (localData) {
+        renderCards(JSON.parse(localData));
+    } else {
+        container.innerHTML = "Chargement...";
+    }
+
     try {
         const res = await fetch("http://localhost:3000/api/data");
         const data = await res.json();
         renderCards(data);
+        localStorage.setItem("cardsData", JSON.stringify(data));
     } catch (error) {
-        container.innerHTML = "Erreur de chargement";
+        console.log("Mode hors ligne");
+
+        if (!localData) {
+            container.innerHTML = "Aucune donnée disponnible offline";
+        }
     }
 
 };
 
-refreshBtn.addEventListener("click", fetchData);
-fetchData();
+const refreshData = async () => {
+    try {
+        const res = await fetch("http://localhost:3000/api/data");
+        const data = await res.json();
+        renderCards(data);
+        localStorage.setItem("cardsData", JSON.stringify(data));
+    } catch (error) {
+        alert("Impossible de rafraîchir offline");
+    }
+};
+refreshBtn.addEventListener("click", refreshData);
+loadData();

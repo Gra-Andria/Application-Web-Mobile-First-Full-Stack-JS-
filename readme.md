@@ -20,6 +20,14 @@ Elle permet d'afficher des cartes dynamiques récupérées depuis une API locale
 3. Le frontend récupère les données via fetch et affiche les cartes
 4. Mobile-first : le bouton prend toute la largeur sur mobile, centré et taille normale sur desktop
 
+## Offline First
+L'application utilise une approche offline-first.
+Les données sont d'abord chargées depuis localStorage pour un affichage rapide,
+puis mises à jour via une API Node.js.
+
+En cas d'absence de connexion, les données sauvegardées sont utilisées,
+ce qui permet à l'application de fonctionner hors ligne.
+
 ## Livrables
 - Code frontend
 - Code backend
