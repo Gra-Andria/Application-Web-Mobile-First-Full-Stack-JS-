@@ -29,7 +29,7 @@ En cas d'absence de connexion, les données sauvegardées sont utilisées,
 ce qui permet à l'application de fonctionner hors ligne.
 
 ## Choix de l'API
-J'ai choisi d'utiliser une API REST
+J'ai choisi d'utiliser une API REST.
 Le REST est une architecture simple basée sur HTTP, qui permet la communication entre le frontend et le backend.
 
 Ce choix est adapté à ce projet car :
