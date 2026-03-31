@@ -28,6 +28,20 @@ puis mises à jour via une API Node.js.
 En cas d'absence de connexion, les données sauvegardées sont utilisées,
 ce qui permet à l'application de fonctionner hors ligne.
 
+## Choix de l'API
+J'ai choisi d'utiliser une API REST
+Le REST est une architecture simple basée sur HTTP, qui permet la communication entre le frontend et le backend.
+
+Ce choix est adapté à ce projet car :
+- il est dacile à implenter avec fetch
+- il correspond à un dashboard simple
+- il est largement utilisé dans le developpement web
+
+J'ai implémenté :
+- GET : récupérer les cartes
+- POST : ajouter une carte
+- DELETE : supprimer une carte
+
 ## Livrables
 - Code frontend
 - Code backend

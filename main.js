@@ -1,18 +1,19 @@
 const container = document.getElementById("cards");
 const refreshBtn = document.getElementById("refreshBtn");
 
-const createCard = (title, content) => {
+const createCard = (id, title, content) => {
     return `
         <div class="card">
             <h2>${title}</h2>
             <p>${content}</p>
+            <button onclick="deleteCard(${id})">Supprimer</button>
         </div>
     `;
 };
 // afficher les cartes
 const renderCards = (data) => {
     container.innerHTML = data.map(item =>
-        createCard(item.title, item.content)
+        createCard(item.id, item.title, item.content)
     ).join("");
 };
 //offline first
@@ -51,3 +52,29 @@ const refreshData = async () => {
 };
 refreshBtn.addEventListener("click", refreshData);
 loadData();
+
+const addCard = async () => {
+    await fetch("http://localhost:3000/api/data", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            title: "Nouvelle carte",
+            content: "Ajoutée via REST API"
+        })
+    });
+
+    loadData();
+};
+
+
+const deleteCard = async (id) => {
+    await fetch(`http://localhost:3000/api/data/${id}`, {
+        method: "DELETE"
+    });
+
+    loadData();
+};
+
+window.deleteCard = deleteCard;
