@@ -1,47 +1,119 @@
 const container = document.getElementById("cards");
 const refreshBtn = document.getElementById("refreshBtn");
 
-//Queue
+const STATE = {
+    staticCards: [],
+    dynamicCards: []
+};
+
 const getQueue = () => JSON.parse(localStorage.getItem("syncQueue")) || [];
 const setQueue = (queue) => localStorage.setItem("syncQueue", JSON.stringify(queue));
 
-const createCard = (id, title, content, type) => {
-    return `
-        <div class="card">
-            <h2>${title}</h2>
-            <p>${content}</p>
-            ${type === "dynamic"
-            ? `<button onclick="deleteCard(${id})">Supprimer</button>`
-            : `<div style="opacity:0.6;font-size:0.8rem;">Info</div>`
-        }
-        </div>
-    `;
-};
-// afficher les cartes
-const renderCards = (data) => {
-    container.innerHTML = data.map(item =>
-        createCard(item.id, item.title, item.content, item.type)
-    ).join("");
+const createCard = (item) => `
+    <div class="card">
+        <h2>${item.title}</h2>
+        <p>${item.content}</p>
+        ${item.type === "dynamic"
+        ? `<button onclick="deleteCard(${item.id})">Supprimer</button>`
+        : `<div class="badge">Info</div>`
+    }
+    </div>
+`;
+
+const render = () => {
+    const allCards = [...STATE.staticCards, ...STATE.dynamicCards];
+    container.innerHTML = allCards.map(createCard).join("");
 };
 
-//load
-const loadData = async () => {
-    const staticCards = await getStaticCards();
 
-    let localData = JSON.parse(localStorage.getItem("cardsData")) || [];
-    mergeAndRender(staticCards);
+const loadLocalData = () => {
+    STATE.dynamicCards = (JSON.parse(localStorage.getItem("cardsData")) || [])
+        .map(item => ({ ...item, type: "dynamic" }));
+};
 
+const saveLocalData = () => {
+    localStorage.setItem("cardsData", JSON.stringify(STATE.dynamicCards));
+};
+
+
+const fetchExternalData = async () => {
+    try {
+        const res = await fetch("https://citation.lecog.fr/public/api/random-quote.php");
+        const data = await res.json();
+
+        return {
+            id: "ext",
+            title: "💡 Citation",
+            content: `${data.data.text} — ${data.data.author.name}`,
+            type: "static"
+        };
+    } catch {
+        return {
+            id: "ext",
+            title: "💡 Citation",
+            content: "Offline",
+            type: "static"
+        };
+    }
+};
+
+const loadStaticCards = async () => {
+    const external = await fetchExternalData();
+
+    STATE.staticCards = [
+        {
+            id: "welcome",
+            title: "👋 Bienvenue",
+            content: "Dashboard intelligent",
+            type: "static"
+        },
+        external
+    ];
+
+    render();
+
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            STATE.staticCards.push({
+                id: "loc",
+                title: "📍 Position",
+                content: `Lat: ${pos.coords.latitude}`,
+                type: "static"
+            });
+
+            render();
+        });
+    }
+};
+
+const fetchServerData = async () => {
     try {
         const res = await fetch("http://localhost:3000/api/data");
         const data = await res.json();
 
-        localStorage.setItem("cardsData", JSON.stringify(data));
-        mergeAndRender(staticCards);
+        STATE.dynamicCards = data.map(item => ({
+            ...item,
+            type: "dynamic"
+        }));
 
-    } catch (error) {
-        console.log("Offline");
+        saveLocalData();
+        render();
+
+    } catch {
+        console.log("Offline → local data used");
     }
 };
+
+const init = async () => {
+    loadLocalData();
+    render();
+
+    await loadStaticCards();
+
+    await fetchServerData();
+};
+
 
 const addCard = () => {
     const newCard = {
@@ -51,53 +123,38 @@ const addCard = () => {
         type: "dynamic"
     };
 
-    //Ajouter en local
-    const localData = JSON.parse(localStorage.getItem("cardsData")) || [];
-    localData.push(newCard);
-    localStorage.setItem("cardsData", JSON.stringify(localData));
-    // renderCards(localData);
-    mergeAndRender();
+    STATE.dynamicCards.push(newCard);
+    saveLocalData();
+    render();
 
-    //Ajouter à la queue 
     const queue = getQueue();
     queue.push({ type: "ADD", data: newCard });
     setQueue(queue);
-
-    console.log("Ajout en queue");
 };
 
-
 const deleteCard = (id) => {
-    // Supprimer en local
-    let localData = JSON.parse(localStorage.getItem("cardsData")) || [];
-    localData = localData.filter(item => item.id !== id);
-    localStorage.setItem("cardsData", JSON.stringify(localData));
-    // renderCards(localData);
-    mergeAndRender();
+    STATE.dynamicCards = STATE.dynamicCards.filter(c => c.id !== id);
+    saveLocalData();
+    render();
 
-    // Ajouter à la queue
     const queue = getQueue();
     queue.push({ type: "DELETE", id });
     setQueue(queue);
-
-    console.log("Suppression en queue");
 };
+
 
 const syncData = async () => {
     const queue = getQueue();
-
     if (queue.length === 0) return;
 
-    console.log("Synchronisation...");
+    console.log("🔄 Sync...");
 
     for (let action of queue) {
         try {
             if (action.type === "ADD") {
                 await fetch("http://localhost:3000/api/data", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(action.data)
                 });
             }
@@ -108,99 +165,23 @@ const syncData = async () => {
                 });
             }
 
-        } catch (error) {
-            console.log("Erreur sync, arrêt");
+        } catch {
+            console.log("❌ Sync failed");
             return;
         }
     }
 
-    //Vider la queue
     localStorage.removeItem("syncQueue");
 
-    //Récupérer les données propres du serveur
-    try {
-        const res = await fetch("http://localhost:3000/api/data");
-        const freshData = await res.json();
+    await fetchServerData();
 
-        localStorage.setItem("cardsData", JSON.stringify(freshData));
-        // renderCards(freshData);
-        const staticCards = await getStaticCards();
-        mergeAndRender(staticCards);
-
-    } catch (error) {
-        console.log("Erreur récupération après sync");
-    }
-
-    console.log("Sync terminée ✅");
+    console.log("✅ Sync OK");
 };
 
-//API externe
-const fetchExternalData = async () => {
-    try {
-        const res = await fetch("https://citation.lecog.fr/public/api/random-quote.php");
-        const data = await res.json();
-
-        return {
-            id: "ext-" + Date.now(),
-            title: "💡 Citation",
-            content: `${data.data.text} — ${data.data.author.name}`,
-            type: "static"
-        };
-    } catch (error) {
-        return {
-            id: "ext-offline",
-            title: "💡 Citation",
-            content: "Pas de connexion",
-            type: "static"
-        };
-    }
-};
-const getStaticCards = async () => {
-    const external = await fetchExternalData();
-
-    let staticCards = [
-        {
-            id: "welcome",
-            title: "👋 Bienvenue",
-            content: "Dashboard intelligent",
-            type: "static"
-        },
-        external
-    ];
-
-    // localisation
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(pos => {
-            staticCards.push({
-                id: "loc",
-                title: "📍 Position",
-                content: `Lat: ${pos.coords.latitude}`,
-                type: "static"
-            });
-
-            mergeAndRender(staticCards);
-        });
-    }
-
-    return staticCards;
-};
-
-const mergeAndRender = (staticCards = []) => {
-    const dynamic = JSON.parse(localStorage.getItem("cardsData")) || [];
-
-    const formattedDynamic = dynamic.map(item => ({
-        ...item,
-        type: "dynamic"
-    }));
-
-    renderCards([...staticCards, ...formattedDynamic]);
-};
 
 refreshBtn.addEventListener("click", syncData);
-window.addEventListener("online", () => {
-    console.log("Connexion retrouvée 🔥");
-    // syncData();
-});
-loadData();
+
 window.addCard = addCard;
 window.deleteCard = deleteCard;
+
+init();
